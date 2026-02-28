@@ -291,9 +291,10 @@ class _LoginPageState extends State<LoginPage> {
         var resarray = jsonDecode(jsonResponse);
         log(jsonResponse);
 
-        if (resarray['status'] == 'success') {
-          final role = resarray['role'];
-          final name = resarray['name'];
+        if (resarray['success'] == true) {
+              final data = resarray['data'][0];
+              final role = data['role'].toString();
+              final name = data['name'].toString();
 
           _showSnackBar('Selamat datang, $name!', Colors.green);
 
