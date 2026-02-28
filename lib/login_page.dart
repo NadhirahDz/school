@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:school/myconfig.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,6 +20,38 @@ class _LoginPageState extends State<LoginPage> {
   late double height, width;
   bool passwordVisible = false;
   bool isLoading = false;
+  bool isChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadPreferences();
+  }
+
+  void loadPreferences() {
+    SharedPreferences.getInstance().then((prefs) {
+      bool? rememberMe = prefs.getBool('rememberMe');
+      if (rememberMe != null && rememberMe) {
+        emailController.text = prefs.getString('email') ?? '';
+        passwordController.text = prefs.getString('password') ?? '';
+        isChecked = true;
+        setState(() {});
+      }
+    });
+  }
+
+  void prefUpdate(bool value) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (value) {
+      prefs.setString('email', emailController.text);
+      prefs.setString('password', passwordController.text);
+      prefs.setBool('rememberMe', true);
+    } else {
+      prefs.remove('email');
+      prefs.remove('password');
+      prefs.remove('rememberMe');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,9 +69,9 @@ class _LoginPageState extends State<LoginPage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF1565C0), // dark blue
-              Color(0xFF1976D2), // medium blue
-              Color(0xFF42A5F5), // light blue
+              Color(0xFF1565C0),
+              Color(0xFF1976D2),
+              Color(0xFF42A5F5),
             ],
           ),
         ),
@@ -153,6 +186,8 @@ class _LoginPageState extends State<LoginPage> {
           ),
           const SizedBox(height: 20),
           _buildPasswordField(),
+          const SizedBox(height: 12),
+          _buildRememberMe(),
         ],
       ),
     );
@@ -228,6 +263,57 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Widget _buildRememberMe() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Row(
+          children: [
+            Checkbox(
+              value: isChecked,
+              activeColor: const Color(0xFF1565C0),
+              onChanged: (value) {
+                isChecked = value ?? false;
+                setState(() {});
+                if (isChecked) {
+                  if (emailController.text.isNotEmpty &&
+                      passwordController.text.isNotEmpty) {
+                    prefUpdate(true);
+                    _showSnackBar('Kelayakan disimpan', Colors.green);
+                  } else {
+                    _showSnackBar(
+                        'Sila isi email dan kata laluan dahulu',
+                        Colors.orange);
+                    isChecked = false;
+                    setState(() {});
+                  }
+                } else {
+                  prefUpdate(false);
+                  emailController.clear();
+                  passwordController.clear();
+                  _showSnackBar('Kelayakan dipadam', Colors.red);
+                  setState(() {});
+                }
+              },
+            ),
+            Text(
+              'Ingat Saya',
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildLoginButton() {
     return SizedBox(
       width: double.infinity,
@@ -256,7 +342,9 @@ class _LoginPageState extends State<LoginPage> {
             : const Text(
                 'Log Masuk',
                 style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
       ),
     );
@@ -292,22 +380,25 @@ class _LoginPageState extends State<LoginPage> {
         log(jsonResponse);
 
         if (resarray['success'] == true) {
-              final data = resarray['data'][0];
-              final role = data['role'].toString();
-              final name = data['name'].toString();
+          final data = resarray['data'][0];
+          final role = data['role'].toString();
+          final name = data['name'].toString();
 
           _showSnackBar('Selamat datang, $name!', Colors.green);
 
-          if (role == 'admin') {
-            Navigator.pushReplacementNamed(context, '/admin',
-                arguments: name);
-          } else if (role == 'teacher_form4') {
-            Navigator.pushReplacementNamed(context, '/teacher4',
-                arguments: name);
-          } else if (role == 'teacher_form5') {
-            Navigator.pushReplacementNamed(context, '/teacher5',
-                arguments: name);
-          }
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (!mounted) return;
+            if (role == 'admin') {
+              Navigator.pushReplacementNamed(context, '/admin',
+                  arguments: name);
+            } else if (role == 'teacher_form4') {
+              Navigator.pushReplacementNamed(context, '/teacher4',
+                  arguments: name);
+            } else if (role == 'teacher_form5') {
+              Navigator.pushReplacementNamed(context, '/teacher5',
+                  arguments: name);
+            }
+          });
         } else {
           _showSnackBar(
               resarray['message'] ?? 'Log masuk gagal', Colors.red);
@@ -329,8 +420,9 @@ class _LoginPageState extends State<LoginPage> {
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         duration: const Duration(seconds: 3),
       ),
     );
