@@ -1,47 +1,40 @@
 <?php
 header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json");
-header("Access-Control-Allow-Methods: POST");
-header("Access-Control-Allow-Headers: Content-Type");
+include 'dbconnect.php';
 
-$conn = new mysqli("localhost", "root", "", "school_db");
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (!isset($_POST['email']) || !isset($_POST['password'])) {
+        $response = array('success' => false, 'message' => 'Bad Request');
+        sendJsonResponse($response);
+        exit();
+    }
 
-if ($conn->connect_error) {
-    die(json_encode(["status" => "error", "message" => "Connection failed"]));
-}
+    $email = $_POST['email'];
+    $password = md5($_POST['password']);
 
-$data = json_decode(file_get_contents("php://input"), true);
+    $sql = "SELECT * FROM users WHERE email = '$email' AND password = '$password'";
+    $result = $conn->query($sql);
 
-$email = $data['email'];
-$password = md5($data['password']);
+    if ($result->num_rows > 0) {
+        $userdata = array();
+        while ($row = $result->fetch_assoc()) {
+            $userdata[] = $row;
+        }
+        $response = array('success' => true, 'message' => 'Login successful', 'data' => $userdata);
+        sendJsonResponse($response);
+    } else {
+        $response = array('success' => false, 'message' => 'Invalid email or password', 'data' => null);
+        sendJsonResponse($response);
+    }
 
-$sql = "SELECT * FROM users WHERE email = ? AND password = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("ss", $email, $password);
-$stmt->execute();
-$result = $stmt->get_result();
-
-if ($result->num_rows == 1) {
-    $user = $result->fetch_assoc();
-    echo json_encode([
-        "status" => "success",
-        "role" => $user['role'],
-        "name" => $user['name'],
-        "email" => $user['email']
-    ]);
 } else {
-    echo json_encode([
-        "status" => "error",
-        "message" => "Invalid email or password"
-    ]);
+    $response = array('success' => false, 'message' => 'Method Not Allowed');
+    sendJsonResponse($response);
+    exit();
 }
 
-$conn->close();
+function sendJsonResponse($sentArray) {
+    header('Content-Type: application/json');
+    echo json_encode($sentArray);
+}
 ?>
-```
-
----
-
-**Test it** by opening your browser and going to:
-```
-http://localhost/school_api/login.php
